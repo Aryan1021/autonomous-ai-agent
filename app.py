@@ -1,7 +1,7 @@
-from agent.models import AgentRequest
+from agent.prompts import PLANNER_PROMPT
 
-request = AgentRequest(
+prompt = PLANNER_PROMPT.format(
     request="Create a business proposal for an AI healthcare chatbot."
 )
 
-print(request)
+print(prompt)
