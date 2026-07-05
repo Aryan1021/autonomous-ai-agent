@@ -2,8 +2,18 @@
 Main entry point for the Autonomous AI Agent API.
 """
 
+import logging
+
 from fastapi import FastAPI
+
 from api.models import AgentRequest, AgentResponse
+from core.logging_config import configure_logging, get_logger
+from core.exceptions import AgentException, register_exception_handlers
+
+# Configure application-wide logging
+configure_logging()
+
+logger = get_logger(__name__)
 
 app = FastAPI(
     title="Autonomous AI Agent API",
@@ -18,6 +28,9 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
+register_exception_handlers(app)
+
+logger.info("Autonomous AI Agent API initialized.")
 
 @app.get(
     "/",
@@ -25,14 +38,17 @@ app = FastAPI(
     summary="Root endpoint",
     description="Returns basic information about the API.",
 )
-async def root():
-    """Return application metadata."""
+async def root() -> dict[str, str]:
+    """
+    Return application metadata.
+    """
+    logger.info("Root endpoint accessed.")
+
     return {
         "application": "Autonomous AI Agent",
         "version": "1.0.0",
         "status": "running",
     }
-
 
 @app.get(
     "/health",
@@ -40,13 +56,16 @@ async def root():
     summary="Health check",
     description="Returns the current health status of the API.",
 )
-async def health_check():
-    """Return the health status of the application."""
+async def health_check() -> dict[str, str]:
+    """
+    Return the health status of the application.
+    """
+    logger.info("Health check endpoint accessed.")
+
     return {
         "status": "healthy",
         "service": "Autonomous AI Agent API",
     }
-
 
 @app.post(
     "/agent",
@@ -62,6 +81,14 @@ async def run_agent(request: AgentRequest) -> AgentResponse:
     """
     Process a user request using the autonomous AI agent.
     """
+    logger.info(
+        "Received agent request: %s",
+        request.request[:100],  # Log only the first 100 characters
+    )
+
+    # TODO:
+    # Replace this placeholder with the real autonomous agent workflow:
+    # Planner -> Executor -> Reflection -> DOCX Generator
 
     return AgentResponse(
         status="success",
@@ -77,3 +104,15 @@ async def run_agent(request: AgentRequest) -> AgentResponse:
         ],
         document_path="output/proposal.docx",
     )
+
+@app.get(
+    "/error",
+    tags=["Testing"],
+    summary="Test custom exception",
+)
+async def trigger_error() -> None:
+    """
+    Endpoint used to verify custom exception handling.
+    """
+
+    raise RuntimeError("Unexpected crash")
