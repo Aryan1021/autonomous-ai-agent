@@ -11,8 +11,10 @@ from pathlib import Path
 
 import colorlog
 
+from core.config import settings
+
 # ----------------------------------------------------------------------
-# Logging Constants
+# Logging Configuration
 # ----------------------------------------------------------------------
 
 LOG_DIR = Path("logs")
@@ -20,7 +22,12 @@ LOG_DIR.mkdir(exist_ok=True)
 
 LOG_FILE = LOG_DIR / "app.log"
 
-LOG_FORMAT = (
+MAX_LOG_SIZE = 5 * 1024 * 1024  # 5 MB
+BACKUP_COUNT = 3
+
+DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
+
+CONSOLE_LOG_FORMAT = (
     "%(log_color)s"
     "%(asctime)s | "
     "%(levelname)-8s | "
@@ -35,10 +42,11 @@ FILE_LOG_FORMAT = (
     "%(message)s"
 )
 
-DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
-
-MAX_LOG_SIZE = 5 * 1024 * 1024  # 5 MB
-BACKUP_COUNT = 3
+LOG_LEVEL = getattr(
+    logging,
+    settings.LOG_LEVEL.upper(),
+    logging.INFO,
+)
 
 
 def configure_logging() -> None:
@@ -47,7 +55,7 @@ def configure_logging() -> None:
     """
 
     console_formatter = colorlog.ColoredFormatter(
-        LOG_FORMAT,
+        fmt=CONSOLE_LOG_FORMAT,
         datefmt=DATE_FORMAT,
         log_colors={
             "DEBUG": "cyan",
@@ -59,7 +67,7 @@ def configure_logging() -> None:
     )
 
     file_formatter = logging.Formatter(
-        FILE_LOG_FORMAT,
+        fmt=FILE_LOG_FORMAT,
         datefmt=DATE_FORMAT,
     )
 
@@ -67,7 +75,7 @@ def configure_logging() -> None:
     console_handler.setFormatter(console_formatter)
 
     file_handler = RotatingFileHandler(
-        LOG_FILE,
+        filename=LOG_FILE,
         maxBytes=MAX_LOG_SIZE,
         backupCount=BACKUP_COUNT,
         encoding="utf-8",
@@ -76,18 +84,31 @@ def configure_logging() -> None:
 
     root_logger = logging.getLogger()
 
-    root_logger.setLevel(logging.INFO)
+    root_logger.setLevel(LOG_LEVEL)
 
-    # Prevent duplicate handlers during reload
+    # Prevent duplicate handlers when Uvicorn reloads
     if root_logger.handlers:
         root_logger.handlers.clear()
 
     root_logger.addHandler(console_handler)
     root_logger.addHandler(file_handler)
 
+    # ------------------------------------------------------------------
+    # Reduce noisy logs from third-party libraries
+    # ------------------------------------------------------------------
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("google_genai").setLevel(logging.WARNING)
+    logging.getLogger("google_genai.models").setLevel(logging.WARNING)
+
 
 def get_logger(name: str) -> logging.Logger:
     """
     Return a configured logger instance.
+
+    Args:
+        name: Module name (typically __name__).
+
+    Returns:
+        Configured logger.
     """
     return logging.getLogger(name)
