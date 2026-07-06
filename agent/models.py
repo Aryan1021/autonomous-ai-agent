@@ -46,7 +46,17 @@ class Task(AgentBaseModel):
         "failed",
     ] = Field(
         default="pending",
-        description="Current execution status of the task.",
+        description="Current execution status.",
+    )
+
+    output: str | None = Field(
+        default=None,
+        description="Generated output after task execution.",
+    )
+
+    error: str | None = Field(
+        default=None,
+        description="Error message if task execution fails.",
     )
 
 
