@@ -41,5 +41,19 @@ class Settings:
     "INFO",
     )
 
+    MAX_RETRIES: int = int(
+        os.getenv(
+            "MAX_RETRIES",
+            "3",
+        )
+    )
+
+    INITIAL_RETRY_DELAY: float = float(
+        os.getenv(
+            "INITIAL_RETRY_DELAY",
+            "2",
+        )
+    )
+
 
 settings = Settings()

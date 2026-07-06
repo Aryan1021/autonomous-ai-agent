@@ -1,75 +1,71 @@
 """
-Prompt templates for the Autonomous AI Agent.
+Prompt builder functions used by the Autonomous AI Agent.
 """
 
-PLANNER_PROMPT = """
-You are an autonomous AI planning agent.
+from __future__ import annotations
 
-A user has submitted the following request:
+
+def build_planner_prompt(request: str) -> str:
+    """
+    Build the planner prompt.
+
+    Args:
+        request:
+            User's natural language request.
+
+    Returns:
+        A prompt instructing the planner to generate a structured execution plan.
+    """
+
+    return f"""
+You are an expert autonomous AI planning agent.
+
+The user submitted the following request:
 
 "{request}"
 
-Your job is to:
+Your job is to create a structured execution plan.
 
-1. Understand the user's goal.
-2. Make reasonable assumptions if information is missing.
-3. Break the request into a logical sequence of tasks.
+Instructions:
 
-Return ONLY valid JSON in the following format:
+1. Understand the user's objective.
+2. Make reasonable assumptions when information is missing.
+3. Break the work into 6–10 high-level executable tasks.
+4. Arrange the tasks in the correct execution order.
+5. Every task must represent exactly one logical unit of work.
+
+Each task MUST contain:
+
+- task_id (integer starting from 1)
+- title (5–12 words)
+- status ("pending")
+
+Return ONLY valid JSON matching EXACTLY this schema:
 
 {{
-  "goal": "...",
-  "assumptions": [
-    "...",
-    "..."
-  ],
-  "tasks": [
-    "...",
-    "...",
-    "..."
-  ]
+    "goal": "string",
+
+    "assumptions": [
+        "string"
+    ],
+
+    "tasks": [
+        {{
+            "task_id": 1,
+            "title": "string",
+            "status": "pending"
+        }}
+    ]
 }}
-"""
 
+Rules:
 
-EXECUTOR_PROMPT = """
-You are an expert business document writer.
-
-User Request:
-{request}
-
-Current Task:
-{task}
-
-Previously Generated Content:
-{previous_content}
-
-Write only the content for the current task.
-
-Use professional business language.
-Do not repeat previous sections.
-"""
-
-
-REFLECTION_PROMPT = """
-You are a senior quality assurance reviewer.
-
-Review the following document carefully.
-
-Check for:
-
-- Missing sections
-- Grammar mistakes
-- Logical consistency
-- Professional tone
-- Formatting issues
-
-If improvements are needed,
-rewrite the document.
-
-Otherwise return the original document.
-
-Document:
-
-{document}
-"""
+- Return JSON only.
+- Do NOT use Markdown.
+- Do NOT use code fences.
+- Do NOT include explanations.
+- Do NOT add extra fields.
+- Do NOT rename any field.
+- Use "task_id" exactly as written.
+- Ensure the JSON is syntactically valid.
+""".strip()
