@@ -4,9 +4,12 @@ Data models used by the Autonomous AI Agent.
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
+
+from uuid import uuid4
 
 
 class AgentBaseModel(BaseModel):
@@ -21,6 +24,10 @@ class AgentBaseModel(BaseModel):
         str_strip_whitespace=True,
     )
 
+
+# ======================================================================
+# Planner Models
+# ======================================================================
 
 class Task(AgentBaseModel):
     """
@@ -59,6 +66,12 @@ class Task(AgentBaseModel):
         description="Error message if task execution fails.",
     )
 
+    execution_time: float | None = Field(
+        default=None,
+        ge=0,
+        description="Execution time in seconds.",
+    )
+
 
 class PlannerOutput(AgentBaseModel):
     """
@@ -83,4 +96,152 @@ class PlannerOutput(AgentBaseModel):
         default_factory=list,
         min_length=1,
         description="Ordered list of executable tasks.",
+    )
+
+
+# ======================================================================
+# Executor Models
+# ======================================================================
+
+class ExecutionResult(AgentBaseModel):
+    """
+    Represents the outcome of executing the execution plan.
+    """
+
+    goal: str = Field(
+        ...,
+        description="Original execution goal.",
+    )
+
+    assumptions: list[str] = Field(
+        default_factory=list,
+        description="Planner assumptions.",
+    )
+
+    tasks: list[Task] = Field(
+        default_factory=list,
+        description="Tasks after execution.",
+    )
+
+    combined_output: str = Field(
+        default="",
+        description="Merged output from all completed tasks.",
+    )
+
+    completed_tasks: int = Field(
+        default=0,
+        ge=0,
+        description="Number of successfully completed tasks.",
+    )
+
+    failed_tasks: int = Field(
+        default=0,
+        ge=0,
+        description="Number of failed tasks.",
+    )
+
+    execution_summary: str | None = Field(
+        default=None,
+        description="Summary of execution.",
+    )
+
+
+# ======================================================================
+# Document Models
+# ======================================================================
+
+class DocumentSection(AgentBaseModel):
+    """
+    Represents a single section in the generated document.
+    """
+
+    heading: str = Field(
+        ...,
+        min_length=1,
+        description="Section heading.",
+    )
+
+    content: str = Field(
+        ...,
+        description="Section content.",
+    )
+
+
+class DocumentContext(AgentBaseModel):
+    """
+    Structured context used by the document generator.
+    """
+
+    title: str = Field(
+        ...,
+        description="Document title.",
+    )
+
+    goal: str = Field(
+        ...,
+        description="Primary goal.",
+    )
+
+    assumptions: list[str] = Field(
+        default_factory=list,
+        description="Planner assumptions.",
+    )
+
+    sections: list[DocumentSection] = Field(
+        default_factory=list,
+        description="Document sections.",
+    )
+
+    summary: str = Field(
+        default="",
+        description="Execution summary.",
+    )
+
+
+class DocumentResult(AgentBaseModel):
+    """
+    Metadata returned after generating the document.
+    """
+
+    title: str = Field(
+        ...,
+        description="Document title.",
+    )
+
+    filename: str = Field(
+        ...,
+        description="Generated filename.",
+    )
+
+    document_path: str = Field(
+        ...,
+        description="Location of the generated document.",
+    )
+
+    generated_at: datetime = Field(
+        default_factory=datetime.now,
+        description="Generation timestamp.",
+    )
+
+    section_count: int = Field(
+        ...,
+        ge=0,
+        description="Number of generated sections.",
+    )
+
+    word_count: int = Field(
+        ...,
+        ge=0,
+        description="Approximate document word count.",
+    )
+
+class WorkflowContext(AgentBaseModel):
+    """
+    Shared context propagated through the
+    complete execution workflow.
+    """
+
+    request_id: str = Field(
+        default_factory=lambda: str(uuid4()),
+        description="Unique workflow identifier.",
     )

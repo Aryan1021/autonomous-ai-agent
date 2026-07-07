@@ -5,7 +5,13 @@ Planner service responsible for generating execution plans.
 from __future__ import annotations
 
 from agent.llm import LLMService
-from agent.models import PlannerOutput
+from agent.models import PlannerOutput, WorkflowContext
+from core.exceptions import (
+    ConfigurationException,
+    LLMException,
+    PlannerException,
+    ValidationException,
+)
 from core.logging_config import get_logger
 from core.prompts import build_planner_prompt
 
@@ -17,7 +23,10 @@ class Planner:
     Autonomous planning service.
     """
 
-    def __init__(self, llm: LLMService) -> None:
+    def __init__(
+        self,
+        llm: LLMService,
+    ) -> None:
         """
         Initialize the planner.
 
@@ -30,6 +39,7 @@ class Planner:
 
     async def plan(
         self,
+        workflow: WorkflowContext,
         request: str,
     ) -> PlannerOutput:
         """
@@ -41,20 +51,63 @@ class Planner:
 
         Returns:
             PlannerOutput
+
+        Raises:
+            ValidationException:
+                If the request is empty.
+
+            ConfigurationException:
+                If Gemini is not configured.
+
+            LLMException:
+                If communication with Gemini fails.
+
+            PlannerException:
+                If an unexpected planner error occurs.
         """
 
-        logger.info("Planning request...")
-
-        prompt = build_planner_prompt(request)
-
-        plan = await self._llm.generate_json(
-            prompt=prompt,
-            output_model=PlannerOutput,
-        )
+        if not request.strip():
+            raise ValidationException(
+                "Request cannot be empty."
+            )
 
         logger.info(
-            "Planner generated %d tasks.",
-            len(plan.tasks),
+            "[%s] Planning request...",
+            workflow.request_id,
         )
 
-        return plan
+        try:
+
+            prompt = build_planner_prompt(
+                request,
+            )
+
+            plan = await self._llm.generate_json(
+                prompt=prompt,
+                output_model=PlannerOutput,
+            )
+
+            logger.info(
+                "[%s] Planner generated %d tasks.",
+                workflow.request_id,
+                len(plan.tasks),
+            )
+
+            return plan
+
+        except (
+            ConfigurationException,
+            ValidationException,
+            LLMException,
+        ):
+            raise
+
+        except Exception as exc:
+
+            logger.exception(
+                "Unexpected planner error."
+            )
+
+            raise PlannerException(
+                "Planner failed unexpectedly."
+            ) from exc

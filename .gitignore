@@ -3,7 +3,7 @@
 # ===========================
 __pycache__/
 *.py[cod]
-*$py.class
+*.pyo
 
 # Virtual Environment
 .venv/
@@ -21,6 +21,9 @@ output/
 
 # IDE
 .idea/
+
+# Cache
+cache/*.json
 
 # Logs
 logs/

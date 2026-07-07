@@ -7,18 +7,23 @@ from __future__ import annotations
 import asyncio
 import json
 from typing import TypeVar
-from pydantic import BaseModel, ValidationError
 
 from google import genai
 from google.genai import types
+from pydantic import BaseModel, ValidationError
 
 from core.config import settings
-from core.exceptions import AgentException
+from core.exceptions import (
+    ConfigurationException,
+    LLMException,
+    ValidationException,
+)
 from core.logging_config import get_logger
 
 logger = get_logger(__name__)
 
 T = TypeVar("T", bound=BaseModel)
+
 
 class LLMService:
     """
@@ -34,10 +39,16 @@ class LLMService:
     def _get_client(self) -> genai.Client:
         """
         Lazily initialize and return the Gemini client.
+
+        Raises:
+            ConfigurationException:
+                If the Gemini API key is missing.
         """
+
         if self._client is None:
+
             if not settings.GEMINI_API_KEY:
-                raise AgentException(
+                raise ConfigurationException(
                     "Gemini API key is not configured."
                 )
 
@@ -47,27 +58,44 @@ class LLMService:
             )
 
             self._client = genai.Client(
-                api_key=settings.GEMINI_API_KEY
+                api_key=settings.GEMINI_API_KEY,
             )
 
         return self._client
-    
+
     async def _request_with_retry(
         self,
         prompt: str,
         temperature: float,
-    ):
+    ) -> types.GenerateContentResponse:
         """
         Send a request to Gemini with retry and exponential backoff.
+
+        Args:
+            prompt:
+                Prompt to send.
+
+            temperature:
+                Sampling temperature.
+
+        Returns:
+            Gemini response.
+
+        Raises:
+            LLMException:
+                If all retry attempts fail.
         """
 
         client = self._get_client()
 
         delay = settings.INITIAL_RETRY_DELAY
 
-        last_exception = None
+        last_exception: Exception | None = None
 
-        for attempt in range(1, settings.MAX_RETRIES + 1):
+        for attempt in range(
+            1,
+            settings.MAX_RETRIES + 1,
+        ):
 
             try:
 
@@ -114,10 +142,10 @@ class LLMService:
             settings.MAX_RETRIES,
         )
 
-        raise AgentException(
+        raise LLMException(
             "Failed to communicate with Gemini after multiple retries."
         ) from last_exception
-
+    
     async def generate(
         self,
         prompt: str,
@@ -127,19 +155,28 @@ class LLMService:
         Generate text using the Gemini model.
 
         Args:
-            prompt: Prompt to send to Gemini.
-            temperature: Optional temperature override.
+            prompt:
+                Prompt to send to Gemini.
+
+            temperature:
+                Optional temperature override.
 
         Returns:
-            Generated text response.
+            Generated text.
 
         Raises:
-            AgentException:
-                If the prompt is invalid or the Gemini request fails.
+            ValidationException:
+                If the prompt is empty.
+
+            ConfigurationException:
+                If Gemini is not configured.
+
+            LLMException:
+                If Gemini communication fails.
         """
 
         if not prompt.strip():
-            raise AgentException(
+            raise ValidationException(
                 "Prompt cannot be empty."
             )
 
@@ -150,18 +187,12 @@ class LLMService:
         )
 
         try:
-            client = self._get_client()
 
             logger.info(
-                "Sending request to Gemini using model '%s' (prompt_length=%d).",
+                "Sending request to Gemini using model '%s' "
+                "(prompt_length=%d).",
                 settings.MODEL_NAME,
                 len(prompt),
-            )
-
-            temperature = (
-                temperature
-                if temperature is not None
-                else settings.TEMPERATURE
             )
 
             response = await self._request_with_retry(
@@ -172,33 +203,44 @@ class LLMService:
             text = response.text
 
             if text is None or not text.strip():
-                raise AgentException(
+                raise LLMException(
                     "Gemini returned an empty response."
                 )
 
             logger.info(
-                "Received response from Gemini (response_length=%d).",
+                "Received response from Gemini "
+                "(response_length=%d).",
                 len(text),
             )
 
             return text
 
-        except AgentException:
+        except (
+            ConfigurationException,
+            ValidationException,
+            LLMException,
+        ):
             raise
 
         except Exception as exc:
+
             logger.exception(
-                "Gemini request failed while generating content."
+                "Unexpected error while generating content."
             )
 
-            raise AgentException(
+            raise LLMException(
                 "Failed to communicate with Gemini."
             ) from exc
-        
+
     @staticmethod
-    def _extract_json(text: str) -> str:
+    def _extract_json(
+        text: str,
+    ) -> str:
         """
-        Extract JSON from a Gemini response.
+        Extract a JSON object from a Gemini response.
+
+        Gemini sometimes wraps JSON inside Markdown
+        code fences. This helper removes them.
         """
 
         text = text.strip()
@@ -213,7 +255,47 @@ class LLMService:
             text = text.removesuffix("```")
 
         return text.strip()
-        
+    
+    @staticmethod
+    def _normalize_json(
+        data: dict,
+    ) -> None:
+        """
+        Normalize common variations in LLM-generated JSON.
+
+        This improves robustness against minor differences
+        in field names returned by the model.
+        """
+
+        tasks = data.get("tasks")
+
+        if not isinstance(tasks, list):
+            return
+
+        for task in tasks:
+
+            if not isinstance(task, dict):
+                continue
+
+            # -------------------------------------------------
+            # id -> task_id
+            # -------------------------------------------------
+
+            if (
+                "id" in task
+                and "task_id" not in task
+            ):
+                task["task_id"] = task.pop("id")
+
+            # -------------------------------------------------
+            # Default status
+            # -------------------------------------------------
+
+            task.setdefault(
+                "status",
+                "pending",
+            )
+    
     async def generate_json(
         self,
         prompt: str,
@@ -230,9 +312,14 @@ class LLMService:
         )
 
         try:
-            response = self._extract_json(response)
 
-            data = json.loads(response)
+            response = self._extract_json(
+                response,
+            )
+
+            data = json.loads(
+                response,
+            )
 
         except json.JSONDecodeError as exc:
 
@@ -240,32 +327,33 @@ class LLMService:
                 "Failed to parse JSON returned by Gemini."
             )
 
-            raise AgentException(
+            logger.error(
+                "Raw Gemini response:\n%s",
+                response,
+            )
+
+            raise ValidationException(
                 "Gemini returned invalid JSON."
             ) from exc
 
-        # ------------------------------------------------------------
-        # Normalize common LLM field variations
-        # ------------------------------------------------------------
-
         if isinstance(data, dict):
 
-            tasks = data.get("tasks")
-
-            if isinstance(tasks, list):
-
-                for task in tasks:
-
-                    if (
-                        isinstance(task, dict)
-                        and "id" in task
-                        and "task_id" not in task
-                    ):
-                        task["task_id"] = task.pop("id")
+            self._normalize_json(
+                data,
+            )
 
         try:
 
-            return output_model.model_validate(data)
+            validated = output_model.model_validate(
+                data,
+            )
+
+            logger.info(
+                "Successfully validated Gemini JSON into '%s'.",
+                output_model.__name__,
+            )
+
+            return validated
 
         except ValidationError as exc:
 
@@ -274,13 +362,14 @@ class LLMService:
             )
 
             logger.error(
-                "Gemini Response:\n%s",
+                "Gemini JSON:\n%s",
                 json.dumps(
                     data,
                     indent=4,
+                    ensure_ascii=False,
                 ),
             )
 
-            raise AgentException(
+            raise ValidationException(
                 "Gemini returned an invalid response structure."
             ) from exc

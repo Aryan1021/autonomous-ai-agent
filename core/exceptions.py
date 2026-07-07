@@ -1,15 +1,8 @@
 """
-Custom exceptions and global exception handlers for the Autonomous AI Agent.
+Custom exceptions used throughout the Autonomous AI Agent.
 """
 
 from __future__ import annotations
-
-from fastapi import FastAPI, Request, status
-from fastapi.responses import JSONResponse
-
-from core.logging_config import get_logger
-
-logger = get_logger(__name__)
 
 
 class AgentException(Exception):
@@ -17,67 +10,44 @@ class AgentException(Exception):
     Base exception for the Autonomous AI Agent.
     """
 
-    def __init__(
-        self,
-        message: str,
-        status_code: int = status.HTTP_400_BAD_REQUEST,
-    ) -> None:
-        self.message = message
-        self.status_code = status_code
-        super().__init__(message)
 
-
-def register_exception_handlers(app: FastAPI) -> None:
+class ConfigurationException(AgentException):
     """
-    Register all application exception handlers.
+    Raised when application configuration is invalid.
     """
 
-    @app.exception_handler(AgentException)
-    async def agent_exception_handler(
-        request: Request,
-        exc: AgentException,
-    ) -> JSONResponse:
-        """
-        Handle custom application exceptions.
-        """
 
-        logger.warning(
-            "AgentException on %s %s: %s",
-            request.method,
-            request.url.path,
-            exc.message,
-        )
+class LLMException(AgentException):
+    """
+    Raised when communication with the LLM fails.
+    """
 
-        return JSONResponse(
-            status_code=exc.status_code,
-            content={
-                "status": "error",
-                "message": exc.message,
-            },
-        )
 
-    @app.exception_handler(Exception)
-    async def global_exception_handler(
-        request: Request,
-        exc: Exception,
-    ) -> JSONResponse:
-        """
-        Handle unexpected exceptions.
-        """
+class PlannerException(AgentException):
+    """
+    Raised when the Planner fails.
+    """
 
-        logger.exception(
-            "Unhandled exception on %s %s",
-            request.method,
-            request.url.path,
-        )
 
-        return JSONResponse(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            content={
-                "status": "error",
-                "message": "Internal Server Error",
-                "detail": (
-                    "An unexpected error occurred while processing the request."
-                ),
-            },
-        )
+class ExecutorException(AgentException):
+    """
+    Raised when task execution fails.
+    """
+
+
+class DocumentException(AgentException):
+    """
+    Raised when document generation fails.
+    """
+
+
+class CacheException(AgentException):
+    """
+    Raised when cache operations fail.
+    """
+
+
+class ValidationException(AgentException):
+    """
+    Raised when model validation fails.
+    """

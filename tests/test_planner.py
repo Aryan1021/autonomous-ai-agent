@@ -5,23 +5,48 @@ Integration test for the Planner service.
 import asyncio
 
 from agent.llm import LLMService
+from agent.models import PlannerOutput
 from agent.planner import Planner
-from core.logging_config import configure_logging, get_logger
+from core.logging_config import (
+    configure_logging,
+    get_logger,
+)
+from utils.cache import load_or_generate
+
+from utils.workflow import create_workflow
 
 configure_logging()
 
 logger = get_logger(__name__)
 
+CACHE_FILE = "planner_output.json"
+
+USER_REQUEST = (
+    "Create a business proposal for an AI healthcare chatbot."
+)
+
 
 async def main() -> None:
+    """
+    Verify planner generation and cache the result.
+    """
 
-    planner = Planner(
-        LLMService(),
+    llm = LLMService()
+
+    planner = Planner(llm)
+
+    plan = await load_or_generate(
+        filename=CACHE_FILE,
+        model_type=PlannerOutput,
+        generator=planner.plan,
+        request=USER_REQUEST,
     )
 
-    plan = await planner.plan(
-        "Create a business proposal for an AI healthcare chatbot."
-    )
+    logger.info("")
+
+    logger.info("=" * 60)
+    logger.info("Planner Output")
+    logger.info("=" * 60)
 
     logger.info("Goal:")
     logger.info(plan.goal)

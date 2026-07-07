@@ -1,0 +1,399 @@
+"""
+Professional Microsoft Word document generator.
+"""
+
+from __future__ import annotations
+
+from datetime import datetime
+from pathlib import Path
+import re
+
+from docx import Document
+from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
+from docx.shared import Pt
+
+from agent.models import (
+    DocumentContext,
+    DocumentResult,
+    DocumentSection,
+)
+from core.exceptions import (
+    DocumentException,
+    ValidationException,
+)
+from core.logging_config import get_logger
+
+logger = get_logger(__name__)
+
+
+class DocumentGenerator:
+    """
+    Generates a professional Microsoft Word document
+    from a DocumentContext.
+    """
+
+    def __init__(self) -> None:
+        """
+        Initialize the document generator.
+        """
+
+        self.output_dir = Path("output")
+        self.output_dir.mkdir(exist_ok=True)
+
+    def generate(
+        self,
+        workflow,
+        context: DocumentContext,
+    ) -> DocumentResult:
+        """
+        Generate a professional DOCX document.
+
+        Args:
+            context:
+                Structured document context.
+
+        Returns:
+            Metadata describing the generated document.
+
+        Raises:
+            ValidationException:
+                If the supplied context is invalid.
+
+            DocumentException:
+                If document generation fails.
+        """
+
+        if not context.sections:
+            raise ValidationException(
+                "Document context contains no sections."
+            )
+
+        logger.info(
+            "[%s] Generating Microsoft Word document.",
+            workflow.request_id,
+        )
+
+        try:
+
+            document = Document()
+
+            self._configure_document(document)
+
+            self._add_title(
+                document=document,
+                context=context,
+            )
+
+            self._add_goal(
+                document=document,
+                context=context,
+            )
+
+            self._add_assumptions(
+                document=document,
+                context=context,
+            )
+
+            self._add_sections(
+                document=document,
+                context=context,
+            )
+
+            self._add_summary(
+                document=document,
+                context=context,
+            )
+
+            self._add_footer(document)
+
+            filename = self._create_filename(
+                context.title,
+            )
+
+            path = self.output_dir / filename
+
+            document.save(path)
+
+            logger.info(
+                "[%s] Document successfully saved to '%s'.",
+                workflow.request_id,
+                path,
+            )
+
+            word_count = sum(
+                len(section.content.split())
+                for section in context.sections
+            )
+
+            return DocumentResult(
+                title=context.title,
+                filename=filename,
+                document_path=str(path),
+                generated_at=datetime.now(),
+                section_count=len(context.sections),
+                word_count=word_count,
+            )
+
+        except ValidationException:
+            raise
+
+        except Exception as exc:
+
+            logger.exception(
+                "Failed to generate Microsoft Word document."
+            )
+
+            raise DocumentException(
+                "Document generation failed."
+            ) from exc
+
+    def _configure_document(
+        self,
+        document: Document,
+    ) -> None:
+        """
+        Configure document-wide settings.
+        """
+
+        logger.info(
+            "Configuring document."
+        )
+
+        core = document.core_properties
+
+        core.author = "Autonomous AI Agent"
+        core.title = "AI Generated Document"
+        core.subject = "Autonomous AI Agent Output"
+        core.comments = (
+            "Generated automatically using the "
+            "Autonomous AI Agent."
+        )
+
+        style = document.styles["Normal"]
+
+        style.font.name = "Calibri"
+        style.font.size = Pt(11)
+
+    def _create_filename(
+        self,
+        title: str,
+    ) -> str:
+        """
+        Generate a filesystem-safe filename.
+        """
+
+        filename = title.lower()
+
+        filename = re.sub(
+            r"[^a-z0-9]+",
+            "_",
+            filename,
+        )
+
+        filename = filename.strip("_")
+        filename = filename[:60]
+
+        return f"{filename}.docx"
+
+    def _add_title(
+        self,
+        document: Document,
+        context: DocumentContext,
+    ) -> None:
+        """
+        Add the document title page.
+        """
+
+        logger.info(
+            "Adding title page."
+        )
+
+        title = document.add_heading(
+            context.title,
+            level=0,
+        )
+
+        title.alignment = (
+            WD_PARAGRAPH_ALIGNMENT.CENTER
+        )
+
+        subtitle = document.add_paragraph()
+
+        subtitle.alignment = (
+            WD_PARAGRAPH_ALIGNMENT.CENTER
+        )
+
+        subtitle.add_run(
+            "Generated by Autonomous AI Agent"
+        ).italic = True
+
+        date = document.add_paragraph()
+
+        date.alignment = (
+            WD_PARAGRAPH_ALIGNMENT.CENTER
+        )
+
+        date.add_run(
+            datetime.now().strftime(
+                "%d %B %Y %H:%M"
+            )
+        )
+
+        document.add_page_break()
+
+    def _add_goal(
+        self,
+        document: Document,
+        context: DocumentContext,
+    ) -> None:
+        """
+        Add the goal section.
+        """
+
+        logger.info(
+            "Adding goal section."
+        )
+
+        heading = document.add_heading(
+            "Goal",
+            level=1,
+        )
+
+        heading.runs[0].font.size = Pt(16)
+
+        paragraph = document.add_paragraph(
+            context.goal,
+        )
+
+        paragraph.paragraph_format.space_after = Pt(12)
+
+    def _add_assumptions(
+        self,
+        document: Document,
+        context: DocumentContext,
+    ) -> None:
+        """
+        Add planner assumptions.
+        """
+
+        logger.info(
+            "Adding assumptions."
+        )
+
+        heading = document.add_heading(
+            "Assumptions",
+            level=1,
+        )
+
+        heading.runs[0].font.size = Pt(16)
+
+        for assumption in context.assumptions:
+
+            paragraph = document.add_paragraph(
+                style="List Bullet",
+            )
+
+            paragraph.add_run(
+                assumption,
+            )
+
+            paragraph.paragraph_format.space_after = Pt(6)
+
+    def _add_sections(
+        self,
+        document: Document,
+        context: DocumentContext,
+    ) -> None:
+        """
+        Add all generated document sections.
+        """
+
+        logger.info(
+            "Adding %d document sections.",
+            len(context.sections),
+        )
+
+        for index, section in enumerate(
+            context.sections,
+            start=1,
+        ):
+            self._add_section(
+                document=document,
+                section=section,
+                index=index,
+            )
+
+    def _add_section(
+        self,
+        document: Document,
+        section: DocumentSection,
+        index: int,
+    ) -> None:
+        """
+        Add a single document section.
+        """
+
+        heading = document.add_heading(
+            f"{index}. {section.heading}",
+            level=1,
+        )
+
+        heading.runs[0].font.size = Pt(16)
+
+        paragraph = document.add_paragraph(
+            section.content,
+        )
+
+        paragraph.paragraph_format.space_after = Pt(12)
+
+    def _add_summary(
+        self,
+        document: Document,
+        context: DocumentContext,
+    ) -> None:
+        """
+        Add execution summary.
+        """
+
+        logger.info(
+            "Adding execution summary."
+        )
+
+        heading = document.add_heading(
+            "Execution Summary",
+            level=1,
+        )
+
+        heading.runs[0].font.size = Pt(16)
+
+        paragraph = document.add_paragraph(
+            context.summary,
+        )
+
+        paragraph.paragraph_format.space_after = Pt(12)
+
+    def _add_footer(
+        self,
+        document: Document,
+    ) -> None:
+        """
+        Add a footer to the document.
+        """
+
+        logger.info(
+            "Adding footer."
+        )
+
+        section = document.sections[0]
+
+        footer = section.footer
+
+        paragraph = footer.paragraphs[0]
+
+        paragraph.alignment = (
+            WD_PARAGRAPH_ALIGNMENT.CENTER
+        )
+
+        paragraph.text = (
+            "Generated by Autonomous AI Agent"
+        )
