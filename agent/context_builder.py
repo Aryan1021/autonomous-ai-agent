@@ -8,6 +8,7 @@ from agent.models import (
     DocumentContext,
     DocumentSection,
     ExecutionResult,
+    WorkflowContext,
 )
 from core.logging_config import get_logger
 
@@ -24,7 +25,7 @@ class ContextBuilder:
 
     def build(
         self,
-        workflow,
+        workflow: WorkflowContext,
         result: ExecutionResult,
     ) -> DocumentContext:
         """

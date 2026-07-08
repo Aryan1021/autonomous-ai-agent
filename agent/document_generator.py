@@ -16,6 +16,7 @@ from agent.models import (
     DocumentContext,
     DocumentResult,
     DocumentSection,
+    WorkflowContext,
 )
 from core.exceptions import (
     DocumentException,
@@ -42,7 +43,7 @@ class DocumentGenerator:
 
     def generate(
         self,
-        workflow,
+        workflow: WorkflowContext,
         context: DocumentContext,
     ) -> DocumentResult:
         """
