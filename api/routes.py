@@ -17,10 +17,16 @@ from agent.context_builder import ContextBuilder
 from agent.document_generator import DocumentGenerator
 from agent.executor import Executor
 from agent.planner import Planner
+from agent.regenerator import Regenerator
+from agent.models import RegenerationResult
+from utils.cache import save_model
+from agent.reflection import Reflection
 
 from api.dependencies import (
     get_context_builder,
     get_document_generator,
+    get_regenerator,
+    get_reflection,
     get_executor,
     get_planner,
 )
@@ -89,6 +95,12 @@ async def run_agent(
     executor: Executor = Depends(
         get_executor,
     ),
+    reflection: Reflection = Depends(
+        get_reflection,
+    ),
+    regenerator: Regenerator = Depends(
+        get_regenerator,
+    ),
     context_builder: ContextBuilder = Depends(
         get_context_builder,
     ),
@@ -100,20 +112,22 @@ async def run_agent(
     Execute the complete autonomous AI workflow.
     """
 
-    logger.info(
-        "Received agent request."
-    )
-
     start_time = time.perf_counter()
 
     workflow = create_workflow()
+
+    logger.info(
+        "[%s] Received agent request.",
+        workflow.request_id,
+    )
 
     # ---------------------------------------------------------
     # Planner
     # ---------------------------------------------------------
 
     logger.info(
-        "Running planner..."
+        "[%s] Running planner...",
+        workflow.request_id,
     )
 
     planner_output = await planner.plan(
@@ -135,6 +149,45 @@ async def run_agent(
     )
 
     # ---------------------------------------------------------
+    # Reflection
+    # ---------------------------------------------------------
+
+    logger.info(
+        "[%s] Running reflection...",
+        workflow.request_id,
+    )
+
+    reflection_result = await reflection.reflect(
+        workflow,
+        execution_result,
+    )
+
+    if reflection_result.needs_revision:
+
+        logger.info(
+            "[%s] Regenerating proposal...",
+            workflow.request_id,
+        )
+
+        regeneration = await regenerator.regenerate(
+            workflow=workflow,
+            execution=execution_result,
+            reflection=reflection_result,
+        )
+
+        execution_result = regeneration.execution
+
+        logger.info(
+            "[%s] Running second reflection...",
+            workflow.request_id,
+        )
+
+        reflection_result = await reflection.reflect(
+            workflow,
+            execution_result,
+        )
+
+    # ---------------------------------------------------------
     # Context Builder
     # ---------------------------------------------------------
 
@@ -145,6 +198,7 @@ async def run_agent(
     document_context = context_builder.build(
         workflow,
         execution_result,
+        reflection_result,
     )
 
     # ---------------------------------------------------------

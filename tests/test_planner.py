@@ -33,12 +33,15 @@ async def main() -> None:
 
     llm = LLMService()
 
+    workflow = create_workflow()
+
     planner = Planner(llm)
 
     plan = await load_or_generate(
         filename=CACHE_FILE,
         model_type=PlannerOutput,
         generator=planner.plan,
+        workflow=workflow,
         request=USER_REQUEST,
     )
 

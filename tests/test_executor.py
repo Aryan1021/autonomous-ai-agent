@@ -17,6 +17,8 @@ from core.logging_config import (
 )
 from utils.cache import load_or_generate
 
+from utils.workflow import create_workflow
+
 configure_logging()
 
 logger = get_logger(__name__)
@@ -35,6 +37,8 @@ async def main() -> None:
     """
 
     llm = LLMService()
+
+    workflow = create_workflow()
 
     planner = Planner(llm)
     executor = Executor(llm)
@@ -58,6 +62,7 @@ async def main() -> None:
         filename=EXECUTION_CACHE,
         model_type=ExecutionResult,
         generator=executor.execute,
+        workflow=workflow,
         plan=plan,
     )
 

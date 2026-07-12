@@ -22,6 +22,9 @@ from core.exceptions import (
     DocumentException,
     ValidationException,
 )
+
+from core.config import settings
+
 from core.logging_config import get_logger
 
 logger = get_logger(__name__)
@@ -100,7 +103,16 @@ class DocumentGenerator:
                 context=context,
             )
 
-            self._add_summary(
+            document.add_page_break()
+
+            if settings.SHOW_REFLECTION_REPORT:
+
+                self._add_reflection(
+                    document=document,
+                    context=context,
+                )
+
+            self._add_workflow_summary(
                 document=document,
                 context=context,
             )
@@ -347,21 +359,210 @@ class DocumentGenerator:
 
         paragraph.paragraph_format.space_after = Pt(12)
 
-    def _add_summary(
+    def _add_reflection(
         self,
         document: Document,
         context: DocumentContext,
     ) -> None:
         """
-        Add execution summary.
+        Add the reflection report.
         """
 
         logger.info(
-            "Adding execution summary."
+            "Adding reflection report."
+        )
+
+        reflection = context.reflection
+
+        # ---------------------------------------------------------
+        # Heading
+        # ---------------------------------------------------------
+
+        heading = document.add_heading(
+            "Reflection Report",
+            level=1,
+        )
+
+        heading.runs[0].font.size = Pt(16)
+
+        # ---------------------------------------------------------
+        # Metrics
+        # ---------------------------------------------------------
+
+        paragraph = document.add_paragraph()
+        paragraph.add_run(
+            "Overall Score: "
+        ).bold = True
+        paragraph.add_run(
+            f"{reflection.overall_score}/100"
+        )
+
+        paragraph = document.add_paragraph()
+        paragraph.add_run(
+            "Confidence: "
+        ).bold = True
+        paragraph.add_run(
+            f"{reflection.confidence}%"
+        )
+
+        paragraph = document.add_paragraph()
+        paragraph.add_run(
+            "Needs Revision: "
+        ).bold = True
+        paragraph.add_run(
+            "Yes"
+            if reflection.needs_revision
+            else "No"
+        )
+
+        # ---------------------------------------------------------
+        # Strengths
+        # ---------------------------------------------------------
+
+        document.add_heading(
+            "Strengths",
+            level=2,
+        )
+
+        if reflection.strengths:
+
+            for strength in reflection.strengths:
+
+                document.add_paragraph(
+                    strength,
+                    style="List Bullet",
+                )
+
+        else:
+
+            document.add_paragraph(
+                "No strengths identified."
+            )
+
+        # ---------------------------------------------------------
+        # Issues
+        # ---------------------------------------------------------
+
+        document.add_heading(
+            "Issues",
+            level=2,
+        )
+
+        if reflection.issues:
+
+            for index, issue in enumerate(
+                reflection.issues,
+                start=1,
+            ):
+
+                document.add_heading(
+                    f"Issue {index}",
+                    level=3,
+                )
+
+                paragraph = document.add_paragraph()
+                paragraph.add_run(
+                    "Severity: "
+                ).bold = True
+                paragraph.add_run(
+                    issue.severity.upper()
+                )
+
+                paragraph = document.add_paragraph()
+                paragraph.add_run(
+                    "Title: "
+                ).bold = True
+                paragraph.add_run(
+                    issue.title
+                )
+
+                paragraph = document.add_paragraph()
+                paragraph.add_run(
+                    "Description: "
+                ).bold = True
+                paragraph.add_run(
+                    issue.description
+                )
+
+                paragraph = document.add_paragraph()
+                paragraph.add_run(
+                    "Evidence: "
+                ).bold = True
+                paragraph.add_run(
+                    issue.evidence
+                )
+
+                # Space before next issue
+                document.add_paragraph()
+
+        else:
+
+            document.add_paragraph(
+                "No issues identified."
+            )
+
+        # ---------------------------------------------------------
+        # Suggestions
+        # ---------------------------------------------------------
+
+        document.add_heading(
+            "Suggestions",
+            level=2,
+        )
+
+        if reflection.suggestions:
+
+            for suggestion in reflection.suggestions:
+
+                paragraph = document.add_paragraph(
+                    style="List Bullet",
+                )
+
+                paragraph.add_run(
+                    suggestion.title
+                ).bold = True
+
+                document.add_paragraph(
+                    suggestion.description
+                )
+
+                # Space before next suggestion
+                document.add_paragraph()
+
+        else:
+
+            document.add_paragraph(
+                "No suggestions."
+            )
+
+        # ---------------------------------------------------------
+        # Reflection Summary
+        # ---------------------------------------------------------
+
+        document.add_heading(
+            "Reflection Summary",
+            level=2,
+        )
+
+        document.add_paragraph(
+            reflection.summary,
+        )
+
+    def _add_workflow_summary(
+        self,
+        document: Document,
+        context: DocumentContext,
+    ) -> None:
+        """
+        Add workflow summary.
+        """
+
+        logger.info(
+            "Adding workflow summary."
         )
 
         heading = document.add_heading(
-            "Execution Summary",
+            "Workflow Summary",
             level=1,
         )
 
@@ -396,5 +597,6 @@ class DocumentGenerator:
         )
 
         paragraph.text = (
-            "Generated by Autonomous AI Agent"
+            "Generated by Autonomous AI Agent\n"
+            "Confidential"
         )

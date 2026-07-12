@@ -6,6 +6,7 @@ from agent.context_builder import ContextBuilder
 from agent.models import (
     DocumentContext,
     ExecutionResult,
+    ReflectionResult,
 )
 from core.logging_config import (
     configure_logging,
@@ -17,11 +18,14 @@ from utils.cache import (
     save_model,
 )
 
+from utils.workflow import create_workflow
+
 configure_logging()
 
 logger = get_logger(__name__)
 
 EXECUTION_CACHE = "execution_result.json"
+REFLECTION_CACHE = "reflection_result.json"
 DOCUMENT_CACHE = "document_context.json"
 
 
@@ -29,6 +33,8 @@ def main() -> None:
     """
     Build a document context from a cached execution result.
     """
+
+    workflow = create_workflow()
 
     builder = ContextBuilder()
 
@@ -57,6 +63,11 @@ def main() -> None:
         ExecutionResult,
     )
 
+    reflection = load_model(
+        REFLECTION_CACHE,
+        ReflectionResult,
+    )
+
     # ---------------------------------------------------------
     # Build document context
     # ---------------------------------------------------------
@@ -66,7 +77,9 @@ def main() -> None:
     )
 
     context = builder.build(
+        workflow,
         execution_result,
+        reflection,
     )
 
     # ---------------------------------------------------------
@@ -130,7 +143,7 @@ def main() -> None:
         logger.info(
             "%d. %s",
             index,
-            section["heading"],
+            section.heading,
         )
 
     logger.info("")

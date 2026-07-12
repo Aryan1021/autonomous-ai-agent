@@ -8,6 +8,8 @@ from agent.models import (
     DocumentContext,
     DocumentSection,
     ExecutionResult,
+    ReflectionResult,
+    ReflectionContext,
     WorkflowContext,
 )
 from core.logging_config import get_logger
@@ -27,6 +29,7 @@ class ContextBuilder:
         self,
         workflow: WorkflowContext,
         result: ExecutionResult,
+        reflection: ReflectionResult,
     ) -> DocumentContext:
         """
         Build a document context from an execution result.
@@ -44,24 +47,45 @@ class ContextBuilder:
             workflow.request_id,
         )
 
+        reflection_context = ReflectionContext(
+            overall_score=reflection.overall_score,
+            confidence=reflection.confidence,
+            needs_revision=reflection.needs_revision,
+            strengths=reflection.strengths,
+            issues=reflection.issues,
+            suggestions=reflection.suggestions,
+            summary=reflection.summary,
+        )
+
         sections: list[DocumentSection] = []
 
-        for task in result.tasks:
+        if result.regenerated_output:
 
-            if task.status != "completed":
-                logger.warning(
-                    "Skipping failed task %d: %s",
-                    task.task_id,
-                    task.title,
-                )
-                continue
+            logger.info(
+                "[%s] Using regenerated proposal.",
+                workflow.request_id,
+            )
 
             sections.append(
                 DocumentSection(
-                    heading=task.title,
-                    content=task.output or "",
+                    heading="Business Proposal",
+                    content=result.regenerated_output,
                 )
             )
+
+        else:
+
+            for task in result.tasks:
+
+                if task.status != "completed":
+                    continue
+
+                sections.append(
+                    DocumentSection(
+                        heading=task.title,
+                        content=task.output or "",
+                    )
+                )
 
         logger.info(
             "[%s] Generated %d document sections.",
@@ -74,6 +98,7 @@ class ContextBuilder:
             goal=result.goal,
             assumptions=result.assumptions,
             sections=sections,
+            reflection=reflection_context,
             summary=result.execution_summary or "",
         )
 

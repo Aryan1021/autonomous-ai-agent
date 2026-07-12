@@ -40,12 +40,20 @@ class DocumentException(AgentException):
     Raised when document generation fails.
     """
 
+class ReflectionException(AgentException):
+    """
+    Raised when the Reflection service fails unexpectedly.
+    """
+
+class RegenerationException(AgentException):
+    """
+    Raised when the regeneration process fails.
+    """
 
 class CacheException(AgentException):
     """
     Raised when cache operations fail.
     """
-
 
 class ValidationException(AgentException):
     """

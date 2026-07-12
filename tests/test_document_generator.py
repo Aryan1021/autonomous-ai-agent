@@ -17,6 +17,8 @@ from utils.cache import (
     save_model,
 )
 
+from utils.workflow import create_workflow
+
 configure_logging()
 
 logger = get_logger(__name__)
@@ -51,6 +53,8 @@ def main() -> None:
         DocumentContext,
     )
 
+    workflow = create_workflow()
+
     generator = DocumentGenerator()
 
     logger.info(
@@ -58,6 +62,7 @@ def main() -> None:
     )
 
     result = generator.generate(
+        workflow,
         context,
     )
 

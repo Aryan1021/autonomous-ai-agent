@@ -155,6 +155,16 @@ class Executor:
                     exc,
                 )
 
+                # -------------------------------------------------
+                # Fail fast.
+                # Do not continue executing remaining tasks when the
+                # LLM itself is unavailable.
+                # -------------------------------------------------
+
+                raise ExecutorException(
+                    f"Execution aborted because the LLM became unavailable: {exc}"
+                ) from exc
+
             except Exception as exc:
 
                 elapsed = (
@@ -172,6 +182,10 @@ class Executor:
                     "Unexpected executor error while executing task %d.",
                     task.task_id,
                 )
+
+                raise ExecutorException(
+                    f"Unexpected error while executing task {task.task_id}."
+                ) from exc
 
         logger.info(
             "[%s] Execution completed (%d success, %d failed).",
