@@ -138,10 +138,10 @@ class Regenerator:
             )
 
             logger.info(
-                "[%s] Regeneration iteration %d completed.",
+                "[%s] Regeneration iteration %d completed successfully.",
                 workflow.request_id,
                 iteration,
-        )
+            )
 
             return RegenerationResult(
                 execution=improved_execution,
@@ -159,7 +159,8 @@ class Regenerator:
         except Exception as exc:
 
             logger.exception(
-                "Unexpected regeneration error."
+                "[%s] Unexpected regeneration error.",
+                workflow.request_id,
             )
 
             raise RegenerationException(

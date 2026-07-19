@@ -72,7 +72,7 @@ class LLMService:
                 )
 
             logger.info(
-                "Initializing Gemini client with model '%s'.",
+                "Initializing Gemini client (primary model: '%s').",
                 settings.PRIMARY_MODEL,
             )
 
@@ -199,7 +199,7 @@ class LLMService:
         self._active_model = model
 
         logger.info(
-            "Active Gemini model changed to '%s'.",
+            "Using Gemini model '%s' as the active model.",
             model,
         )
 
@@ -438,8 +438,7 @@ class LLMService:
                     last_exception = exc
 
                     logger.exception(
-                        "Unexpected Gemini error "
-                        "using '%s'.",
+                        "Unexpected error while using Gemini model '%s'.",
                         model,
                     )
 
@@ -476,8 +475,8 @@ class LLMService:
                 "Trying next fallback model..."
             )
 
-        logger.exception(
-           "All configured Gemini models failed."
+        logger.error(
+            "All configured Gemini models failed."
         )
 
         raise LLMException(
@@ -759,8 +758,7 @@ class LLMService:
             )
 
             logger.info(
-                "Successfully validated response "
-                "into '%s'.",
+                "Validated response as '%s'.",
                 output_model.__name__,
             )
 

@@ -105,7 +105,8 @@ class Planner:
         except Exception as exc:
 
             logger.exception(
-                "Unexpected planner error."
+                "[%s] Unexpected planner error.",
+                workflow.request_id,
             )
 
             raise PlannerException(

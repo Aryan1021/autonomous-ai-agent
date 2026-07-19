@@ -13,6 +13,8 @@ from dataclasses import (
 )
 import os
 
+from core.exceptions import ConfigurationException
+
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -22,6 +24,9 @@ load_dotenv()
 class Settings:
     """
     Application settings.
+
+    All configuration values can be overridden using environment variables.
+    Configuration is validated during application startup.
     """
 
     GEMINI_API_KEY: str = os.getenv(
@@ -86,6 +91,67 @@ class Settings:
             )
         )
     )
+
+    def __post_init__(self) -> None:
+        """
+        Validate application configuration.
+        """
+
+        if not self.GEMINI_API_KEY.strip():
+            raise ConfigurationException(
+                "GEMINI_API_KEY cannot be empty."
+            )
+
+        if not self.PRIMARY_MODEL.strip():
+            raise ConfigurationException(
+                "PRIMARY_MODEL cannot be empty."
+            )
+
+        if not self.FALLBACK_MODELS:
+            raise ConfigurationException(
+                "At least one fallback model must be configured."
+            )
+
+        if any(
+            not model.strip()
+            for model in self.FALLBACK_MODELS
+        ):
+            raise ConfigurationException(
+                "Fallback model names cannot be empty."
+            )
+
+        if not 0.0 <= self.TEMPERATURE <= 2.0:
+            raise ConfigurationException(
+                "TEMPERATURE must be between 0.0 and 2.0."
+            )
+
+        if self.MAX_RETRIES < 1:
+            raise ConfigurationException(
+                "MAX_RETRIES must be at least 1."
+            )
+
+        if self.INITIAL_RETRY_DELAY <= 0:
+            raise ConfigurationException(
+                "INITIAL_RETRY_DELAY must be greater than 0."
+            )
+
+        if self.MAX_REGENERATION_ITERATIONS < 1:
+            raise ConfigurationException(
+                "MAX_REGENERATION_ITERATIONS must be at least 1."
+            )
+
+        valid_levels = {
+            "DEBUG",
+            "INFO",
+            "WARNING",
+            "ERROR",
+            "CRITICAL",
+        }
+
+        if self.LOG_LEVEL.upper() not in valid_levels:
+            raise ConfigurationException(
+                f"Invalid LOG_LEVEL '{self.LOG_LEVEL}'."
+            )
 
 
 settings = Settings()

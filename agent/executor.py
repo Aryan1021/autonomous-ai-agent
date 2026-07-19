@@ -123,9 +123,10 @@ class Executor:
                 combined_output.append(result)
 
                 logger.info(
-                    "[%s] Task %d completed in %.2f seconds (%d chars).",
+                    "[%s] Task %d (%s) completed in %.2f seconds (%d chars).",
                     workflow.request_id,
                     task.task_id,
+                    task.title,
                     elapsed,
                     len(result),
                 )
@@ -179,7 +180,8 @@ class Executor:
                 failed += 1
 
                 logger.exception(
-                    "Unexpected executor error while executing task %d.",
+                    "[%s] Unexpected executor error while executing task %d.",
+                    workflow.request_id,
                     task.task_id,
                 )
 
@@ -212,7 +214,8 @@ class Executor:
         except Exception as exc:
 
             logger.exception(
-                "Failed to build execution result."
+                "[%s] Failed to build execution result.",
+                workflow.request_id,
             )
 
             raise ExecutorException(

@@ -125,17 +125,19 @@ class DocumentGenerator:
 
             path = self.output_dir / filename
 
-            document.save(path)
-
-            logger.info(
-                "[%s] Document successfully saved to '%s'.",
-                workflow.request_id,
-                path,
-            )
-
             word_count = sum(
                 len(section.content.split())
                 for section in context.sections
+            )
+
+            document.save(path)
+
+            logger.info(
+                "[%s] Document successfully saved to '%s' (%d sections, %d words).",
+                workflow.request_id,
+                path,
+                len(context.sections),
+                word_count,
             )
 
             return DocumentResult(
@@ -153,7 +155,8 @@ class DocumentGenerator:
         except Exception as exc:
 
             logger.exception(
-                "Failed to generate Microsoft Word document."
+                "[%s] Failed to generate Microsoft Word document.",
+                workflow.request_id,
             )
 
             raise DocumentException(

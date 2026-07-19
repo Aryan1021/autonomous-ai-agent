@@ -99,9 +99,10 @@ class Reflection:
             )
 
             logger.info(
-                "[%s] Reflection completed (Score=%d, Needs Revision=%s).",
+                "[%s] Reflection completed (Score=%d, Confidence=%d, Needs Revision=%s).",
                 workflow.request_id,
                 reflection.overall_score,
+                reflection.confidence,
                 reflection.needs_revision,
             )
 
@@ -117,7 +118,8 @@ class Reflection:
         except Exception as exc:
 
             logger.exception(
-                "Unexpected reflection error."
+                "[%s] Unexpected reflection error.",
+                workflow.request_id,
             )
 
             raise ReflectionException(

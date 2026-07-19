@@ -103,7 +103,8 @@ class ContextBuilder:
         )
 
         logger.info(
-            "Document context successfully created."
+            "[%s] Document context successfully created.",
+            workflow.request_id,
         )
 
         return context
