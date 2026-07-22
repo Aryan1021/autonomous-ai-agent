@@ -5,26 +5,16 @@ Main entry point for the Autonomous AI Agent API.
 from __future__ import annotations
 
 import time
-
 from contextlib import asynccontextmanager
 
-from core.exceptions import ConfigurationException
+from fastapi import FastAPI, Request
 
-from fastapi import (
-    FastAPI,
-    Request,
-)
-
-from api.exception_handlers import (
-    register_exception_handlers,
-)
+from api.exception_handlers import register_exception_handlers
 from api.routes import router
 
 from core.config import settings
-from core.logging_config import (
-    configure_logging,
-    get_logger,
-)
+from core.exceptions import ConfigurationException
+from core.logging_config import configure_logging, get_logger
 
 configure_logging()
 
@@ -115,6 +105,26 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
+
+@app.get(
+    "/",
+    tags=["Root"],
+    summary="API Root",
+)
+async def root():
+    """
+    Root endpoint for the Autonomous AI Agent API.
+    """
+
+    return {
+        "name": app.title,
+        "version": app.version,
+        "status": "running",
+        "documentation": "/docs",
+        "redoc": "/redoc",
+    }
+
+
 app.include_router(router)
 
 register_exception_handlers(app)
@@ -147,7 +157,6 @@ async def log_requests(
     )
 
     if request.client:
-
         logger.info(
             "Client      : %s",
             request.client.host,
@@ -156,15 +165,12 @@ async def log_requests(
     response = None
 
     try:
-
         response = await call_next(
             request,
         )
-
         return response
 
     finally:
-
         elapsed = (
             time.perf_counter()
             - start_time
@@ -176,14 +182,11 @@ async def log_requests(
         logger.info("=" * 60)
 
         if response is not None:
-
             logger.info(
                 "Status Code : %d",
                 response.status_code,
             )
-
         else:
-
             logger.error(
                 "Status Code : ERROR",
             )
